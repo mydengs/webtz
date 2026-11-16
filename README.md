@@ -73,3 +73,18 @@ curl -H 'Host: <域名>' -H 'X-Real-IP: 111.55.170.4' http://127.0.0.1/   # 广�
 ## License
 
 Private / internal use.
+
+## 上传 GitHub 备份
+
+```bash
+cd /opt/wwwroot/webtz
+git add -A && git commit -m "update"
+git remote add origin git@github.com:<你的用户名>/webtz.git
+git push -u origin main        # 或 master
+# 新服务器部署：
+git clone git@github.com:<你的用户名>/webtz.git /opt/webtz
+sudo bash /opt/webtz/scripts/deploy.sh /root/sites.txt
+```
+
+> 注意：仓库不含任何生产密文/基线/日志（.gitignore 已排除 data/ 运行时产物）；
+> kstat.bin.example 是示例密文，每台服务器部署时用自己的目标 URL 重新生成。
