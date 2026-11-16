@@ -1,0 +1,9 @@
+# 运行时产物（部署后生成）
+data/
+logs/
+*.log
+stat.dat
+gate.flag
+.sysd
+# 本机路径适配后的副本（勿提交）
+scripts/*.bak.*
