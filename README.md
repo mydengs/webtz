@@ -79,10 +79,9 @@ Private / internal use.
 ```bash
 cd /opt/wwwroot/webtz
 git add -A && git commit -m "update"
-git remote add origin git@github.com:<你的用户名>/webtz.git
-git push -u origin main        # 或 master
+git push -u origin main              # 仓库：https://github.com/mydengs/webtz
 # 新服务器部署：
-git clone git@github.com:<你的用户名>/webtz.git /opt/webtz
+git clone https://github.com/mydengs/webtz.git /opt/webtz
 sudo bash /opt/webtz/scripts/deploy.sh /root/sites.txt
 ```
 
